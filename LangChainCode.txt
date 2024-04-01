@@ -1,0 +1,28 @@
+# Log the RetrievalQA chain
+with mlflow.start_run() as mlflow_run:
+  logged_model = mlflow.langchain.log_model(
+    retrieval_qa,
+    "retrieval_qa_chain",
+    loader_fn=load_retriever,
+    persist_dir=persist_directory,
+  )
+
+Loading the chain using MLFlow
+model_uri = f"runs:/{ mlflow_run.info.run_id }/retrieval_qa_chain"
+ 
+loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+langchain_input = {"query": “What is Enterprise Application Integration "}
+loaded_pyfunc_model.predict([langchain_input])
+
+Use LangChain to interact with a Spark DataFrame notebook
+%pip install --upgrade langchain databricks-sql-connector
+dbutils.library.restartPython()
+
+import os
+os.environ["OPENAI_API_KEY"] = " XYZDDADDDADADDDA"
+
+from langchain.llms import OpenAI
+from langchain.agents import create_spark_dataframe_agent
+ 
+df = spark.read.csv("/test/researchPaper.csv", header=True, inferSchema=True)
+agent.run("How many rows are there?")
