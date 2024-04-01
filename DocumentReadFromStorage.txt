@@ -1,0 +1,48 @@
+// Reading file from Object storage
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+df = spark.read.csv("test_folder/researchPaper_2023.csv", header=True)
+from langchain.document_loaders import PySparkDataFrameLoader
+loader = PySparkDataFrameLoader(spark, df, page_content_column="text")
+documents = loader.load()
+%pip install --upgrade langchain faiss-cpu mlflow
+dbutils.library.restartPython()
+import os
+ 
+os.environ["OPENAI_API_KEY"] = "XYZDDADDDADADDDA"
+number_of_articles = 20
+researchPaper_dataframe = spark.read.parquet("test/research_paper/*").limit(number_of_articles)
+
+from langchain.document_loaders import PySparkDataFrameLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+ 
+loader = PySparkDataFrameLoader(spark, researchPaper_dataframe, page_content_column="text")
+documents = loader.load()
+ 
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=0)
+texts = text_splitter.split_documents(documents)
+print(f"Number of documents: {len(texts)}")
+
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+ 
+embeddings = OpenAIEmbeddings()
+db = FAISS.from_documents(texts, embeddings)
+from langchain.chains import RetrievalQA
+from langchain import OpenAI
+ 
+retrieval_qa = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type="stuff", retriever=db.as_retriever())
+query = "What is Enterprise Application Integration"
+result = retrieval_qa({"query": query})
+print("Result:", result["result"])
+
+Logging the chain with Mlflow
+import mlflow
+ 
+persist_directory = "langchain/faiss_index"
+db.save_local(persist_directory)
+ 
+def load_retriever(persist_directory):
+  embeddings = OpenAIEmbeddings()
+  db = FAISS.load_local(persist_directory, embeddings)
+  return db.as_retriever()
